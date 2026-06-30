@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>票数统计器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .app {
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+
+  /* ===== 顶部 ===== */
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .header .subtitle {
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* ===== 总览条 ===== */
+  .summary-bar {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    margin-bottom: 20px;
+  }
+  .summary-item {
+    text-align: center;
+    color: rgba(255,255,255,0.5);
+    font-size: 12px;
+  }
+  .summary-item .val {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
+    color: #f0c040;
+  }
+
+  /* ===== 全局方面标签编辑 ===== */
+  .aspect-labels-bar {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .aspect-label-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 6px 12px;
+  }
+  .aspect-label-chip span {
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .aspect-label-chip input {
+    width: 80px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: #c0c0ff;
+    font-size: 13px;
+    font-weight: 600;
+    outline: none;
+    padding: 2px 0;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+  .aspect-label-chip input:focus {
+    border-bottom-color: rgba(160,160,255,0.5);
+  }
+
+  /* ===== 三列网格 ===== */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 700px)  { .card-grid { grid-template-columns: 1fr; } }
+
+  /* ===== 候选人卡片 ===== */
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 16px 16px 12px;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .card:hover { border-color: rgba(255,255,255,0.18); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .card-header input.name-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: #e8e8e8;
+    font-size: 17px;
+    font-weight: 700;
+    outline: none;
+    padding: 2px 0;
+    transition: border-color 0.15s;
+    min-width: 0;
+  }
+  .card-header input.name-input:focus {
+    border-bottom-color: rgba(255,255,255,0.3);
+  }
+  .card-header .btn-del-card {
+    width: 24px; height: 24px;
+    border-radius: 7px;
+    font-size: 12px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.2);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card-header .btn-del-card:hover {
+    background: rgba(255,80,80,0.25);
+    color: #ff6b6b;
+  }
+
+  /* 方面行 */
+  .aspect-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .aspect-row .aspect-name {
+    width: 56px;
+    flex-shrink: 0;
+    color: rgba(255,255,255,0.45);
+    font-size: 11px;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ABCD 按钮组 */
+  .abcd-group {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    justify-content: space-around;
+  }
+  .abcd-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .abcd-item .letter {
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.5px;
+  }
+  .abcd-item .btns {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+  .btn-sm {
+    width: 24px; height: 24px;
+    border: none;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.06s, box-shadow 0.06s;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1;
+  }
+  .btn-sm:active { transform: scale(0.88); }
+
+  .btn-a { background: rgba(100,200,255,0.2); color: #6cc8ff; }
+  .btn-a:hover { background: rgba(100,200,255,0.38); box-shadow: 0 0 10px rgba(100,200,255,0.2); }
+  .btn-b { background: rgba(130,220,160,0.2); color: #6adc90; }
+  .btn-b:hover { background: rgba(130,220,160,0.38); box-shadow: 0 0 10px rgba(130,220,160,0.2); }
+  .btn-c { background: rgba(240,200,100,0.2); color: #e8b84a; }
+  .btn-c:hover { background: rgba(240,200,100,0.38); box-shadow: 0 0 10px rgba(240,200,100,0.2); }
+  .btn-d { background: rgba(240,130,130,0.2); color: #f06c6c; }
+  .btn-d:hover { background: rgba(240,130,130,0.38); box-shadow: 0 0 10px rgba(240,130,130,0.2); }
+
+  .count-sm {
+    width: 18px;
+    text-align: center;
+    color: #ddd;
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .highlight {
+    animation: pop 0.22s ease-out;
+  }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.35); color: #f0c040; }
+    100% { transform: scale(1); }
+  }
+  @keyframes toastIn  { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
+  /* ===== 底部操作 ===== */
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-action {
+    width: auto;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .btn-add {
+    background: rgba(100,180,255,0.2);
+    color: #7bb8ff;
+  }
+  .btn-add:hover { background: rgba(100,180,255,0.38); }
+  .btn-paste {
+    background: rgba(200,140,255,0.2);
+    color: #c08cff;
+  }
+  .btn-paste:hover { background: rgba(200,140,255,0.38); }
+  .btn-export {
+    background: rgba(100,220,180,0.2);
+    color: #5ce0a8;
+  }
+  .btn-export:hover { background: rgba(100,220,180,0.38); }
+  .btn-copy {
+    background: rgba(255,200,120,0.2);
+    color: #f0b850;
+  }
+  .btn-copy:hover { background: rgba(255,200,120,0.38); }
+  .btn-reset {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.45);
+  }
+  .btn-reset:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .footer {
+    text-align: center;
+    margin-top: 16px;
+    color: rgba(255,255,255,0.18);
+    font-size: 11px;
+  }
+
+  /* ===== 粘贴弹窗 ===== */
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(4px);
+    z-index: 100; justify-content: center; align-items: center;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: #1e1b3a;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 28px 24px 20px;
+    width: 100%; max-width: 460px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  }
+  .modal h2 {
+    color: #fff; font-size: 18px; font-weight: 700;
+    margin-bottom: 6px; text-align: center;
+  }
+  .modal .hint {
+    color: rgba(255,255,255,0.4); font-size: 12px;
+    text-align: center; margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .modal textarea {
+    width: 100%; height: 180px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #e0e0e0; font-size: 15px;
+    padding: 14px; resize: vertical;
+    font-family: "Microsoft YaHei", -apple-system, sans-serif;
+    outline: none;
+  }
+  .modal textarea:focus { border-color: rgba(200,140,255,0.5); }
+  .modal .preview {
+    color: rgba(255,255,255,0.35); font-size: 12px;
+    margin-top: 10px; min-height: 18px;
+    text-align: center;
+  }
+  .modal .radio-row {
+    display: flex; gap: 20px; justify-content: center;
+    margin-top: 10px; color: rgba(255,255,255,0.5); font-size: 13px;
+  }
+  .modal .radio-row label {
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .modal .radio-row input[type=radio] { accent-color: #c08cff; }
+  .modal .btn-row {
+    display: flex; gap: 10px; margin-top: 16px; justify-content: center;
+  }
+  .btn-confirm {
+    background: rgba(200,140,255,0.3); color: #d4a8ff;
+    padding: 10px 24px; border: none; border-radius: 11px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-confirm:hover { background: rgba(200,140,255,0.5); }
+  .btn-cancel {
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5);
+    padding: 10px 24px; border: none; border-radius: 11px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-cancel:hover { background: rgba(255,255,255,0.14); color: #fff; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>📊 票数统计</h1>
+    <p class="subtitle">每人四方面 · ABCD 四档计数 · 数据自动保存</p>
+  </div>
+
+  <!-- 总览 -->
+  <div class="summary-bar" id="summaryBar"></div>
+
+  <!-- 全局方面标签 -->
+  <div class="aspect-labels-bar" id="aspectLabelsBar"></div>
+
+  <!-- 三列候选人网格 -->
+  <div class="card-grid" id="cardGrid"></div>
+
+  <!-- 操作按钮 -->
+  <div class="actions">
+    <button class="btn-action btn-add" onclick="addCandidate()">＋ 添加候选人</button>
+    <button class="btn-action btn-paste" onclick="openPasteModal()">📋 粘贴名单</button>
+    <button class="btn-action btn-export" onclick="exportCSV()">📥 导出 CSV</button>
+    <button class="btn-action btn-copy" onclick="copyTable()">📄 复制为表格</button>
+    <button class="btn-action btn-reset" onclick="resetAll()">⟳ 全部归零</button>
+  </div>
+  <p class="footer">点击 A/B/C/D 按钮加减计数 · 双击方面标签可改名 · 自动存本地</p>
+</div>
+
+<!-- 粘贴名单弹窗 -->
+<div class="overlay" id="pasteOverlay" onclick="if(event.target===this)closePasteModal()">
+  <div class="modal">
+    <h2>📋 一键粘贴人名</h2>
+    <p class="hint">支持换行 / 逗号 / 顿号 / 分号 / 空格 分隔<br>粘贴后自动创建候选人（ABCD 计数均为 0）</p>
+    <textarea id="pasteInput" placeholder="示例：&#10;张三&#10;李四&#10;王五, 赵六&#10;...&#10;"
+              oninput="previewNames()"></textarea>
+    <div class="preview" id="namePreview"></div>
+    <div class="radio-row">
+      <label><input type="radio" name="pasteMode" value="append" checked> 追加到现有</label>
+      <label><input type="radio" name="pasteMode" value="replace"> 替换全部</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closePasteModal()">取消</button>
+      <button class="btn-confirm" onclick="confirmPaste()">✅ 确认导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 数据模型 ==========
+const STORAGE_KEY = 'vote_counter_v2';
+const DEFAULT_ASPECT_LABELS = ['维度一', '维度二', '维度三', '维度四'];
+const LETTERS = ['A', 'B', 'C', 'D'];
+
+// 全局方面标签
+let aspectLabels = [...DEFAULT_ASPECT_LABELS];
+
+// 候选人结构: { id, name, aspects: [{A,B,C,D}, {A,B,C,D}, {A,B,C,D}, {A,B,C,D}] }
+let candidates = [];
+
+function defaultAspects() {
+  return aspectLabels.map(() => ({ A: 0, B: 0, C: 0, D: 0 }));
+}
+
+function defaultCandidates() {
+  return ['候选人 A', '候选人 B', '候选人 C'].map((name, i) => ({
+    id: Date.now() + i,
+    name,
+    aspects: defaultAspects()
+  }));
+}
+
+// ========== 持久化 ==========
+function loadAll() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      // 迁移兼容：确保 aspects 长度与 aspectLabels 一致
+      if (data.aspectLabels) aspectLabels = data.aspectLabels;
+      if (data.candidates) {
+        candidates = data.candidates.map(c => {
+          // 补齐缺失的 aspects
+          while (c.aspects.length < aspectLabels.length) {
+            c.aspects.push({ A: 0, B: 0, C: 0, D: 0 });
+          }
+          // 裁剪多余的 aspects
+          c.aspects = c.aspects.slice(0, aspectLabels.length);
+          // 确保每个 aspect 都有 ABCD
+          c.aspects = c.aspects.map(a => ({
+            A: a.A ?? 0, B: a.B ?? 0, C: a.C ?? 0, D: a.D ?? 0
+          }));
+          return c;
+        });
+        return;
+      }
+    }
+  } catch(e) {}
+  candidates = defaultCandidates();
+  aspectLabels = [...DEFAULT_ASPECT_LABELS];
+}
+
+function saveAll() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ aspectLabels, candidates }));
+}
+
+loadAll();
+
+// ========== 渲染 ==========
+function render() {
+  renderAspectLabels();
+  renderSummary();
+  renderCards();
+}
+
+function renderAspectLabels() {
+  const bar = document.getElementById('aspectLabelsBar');
+  bar.innerHTML = aspectLabels.map((label, i) => `
+    <div class="aspect-label-chip">
+      <span>方面${i + 1}</span>
+      <input value="${escapeHtml(label)}"
+             onchange="updateAspectLabel(${i}, this.value)"
+             title="修改后所有卡片的该方面名称同步更新">
+    </div>
+  `).join('');
+}
+
+function renderSummary() {
+  const bar = document.getElementById('summaryBar');
+  const totalPeople = candidates.length;
+
+  // 汇总每个方面的 ABCD 总数
+  const aspectTotals = aspectLabels.map((_, ai) => {
+    const sum = { A: 0, B: 0, C: 0, D: 0 };
+    candidates.forEach(c => {
+      if (c.aspects[ai]) {
+        sum.A += c.aspects[ai].A;
+        sum.B += c.aspects[ai].B;
+        sum.C += c.aspects[ai].C;
+        sum.D += c.aspects[ai].D;
+      }
+    });
+    return sum;
+  });
+
+  // 总计所有计数
+  const grandTotal = aspectTotals.reduce((s, t) => s + t.A + t.B + t.C + t.D, 0);
+
+  let html = `
+    <div class="summary-item"><span class="val">${totalPeople}</span>候选人</div>
+    <div class="summary-item"><span class="val">${grandTotal}</span>总计数</div>
+  `;
+  aspectLabels.forEach((label, i) => {
+    const t = aspectTotals[i];
+    html += `<div class="summary-item"><span class="val">${t.A + t.B + t.C + t.D}</span>${escapeHtml(label)}</div>`;
+  });
+
+  bar.innerHTML = html;
+}
+
+function renderCards() {
+  const grid = document.getElementById('cardGrid');
+
+  if (candidates.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:rgba(255,255,255,0.2);padding:60px;">
+      暂无候选人，点击下方按钮添加
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = candidates.map((c, ci) => `
+    <div class="card" data-index="${ci}">
+      <div class="card-header">
+        <input class="name-input" value="${escapeHtml(c.name)}"
+               onchange="renameCandidate(${ci}, this.value)"
+               placeholder="输入姓名">
+        <button class="btn-del-card" onclick="deleteCandidate(${ci})" title="删除此候选人">✕</button>
+      </div>
+      ${c.aspects.map((asp, ai) => `
+        <div class="aspect-row">
+          <div class="aspect-name" title="${escapeHtml(aspectLabels[ai])}">${escapeHtml(aspectLabels[ai])}</div>
+          <div class="abcd-group">
+            ${LETTERS.map(letter => `
+              <div class="abcd-item">
+                <span class="letter">${letter}</span>
+                <div class="btns">
+                  <button class="btn-sm btn-${letter.toLowerCase()}"
+                          onclick="delta(${ci}, ${ai}, '${letter}', -1)"
+                          title="${escapeHtml(aspectLabels[ai])} ${letter} −1">−</button>
+                  <span class="count-sm count-${ci}-${ai}-${letter}">${asp[letter]}</span>
+                  <button class="btn-sm btn-${letter.toLowerCase()}"
+                          onclick="delta(${ci}, ${ai}, '${letter}', 1)"
+                          title="${escapeHtml(aspectLabels[ai])} ${letter} +1">+</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ========== 操作 ==========
+function delta(ci, ai, letter, d) {
+  candidates[ci].aspects[ai][letter] = Math.max(0, candidates[ci].aspects[ai][letter] + d);
+  saveAll();
+  // 局部更新：只更新这个计数和总览，不重新渲染全部卡片
+  const el = document.querySelector(`.count-${ci}-${ai}-${letter}`);
+  if (el) {
+    el.textContent = candidates[ci].aspects[ai][letter];
+    el.classList.remove('highlight');
+    void el.offsetWidth;
+    el.classList.add('highlight');
+  }
+  renderSummary();
+}
+
+function renameCandidate(ci, newName) {
+  candidates[ci].name = newName.trim() || candidates[ci].name;
+  saveAll();
+  // 名字改了不需要重新渲染
+}
+
+function addCandidate() {
+  candidates.push({
+    id: Date.now(),
+    name: `候选人 ${candidates.length + 1}`,
+    aspects: defaultAspects()
+  });
+  saveAll();
+  render();
+}
+
+function deleteCandidate(ci) {
+  if (candidates.length <= 1) return;
+  candidates.splice(ci, 1);
+  saveAll();
+  render();
+}
+
+function updateAspectLabel(ai, newLabel) {
+  aspectLabels[ai] = newLabel.trim() || aspectLabels[ai];
+  saveAll();
+  render(); // 标签变了需要全量渲染
+}
+
+function resetAll() {
+  if (confirm('确定将所有候选人的所有 ABCD 计数归零吗？（不会删除候选人）')) {
+    candidates.forEach(c => {
+      c.aspects.forEach(a => { a.A = 0; a.B = 0; a.C = 0; a.D = 0; });
+    });
+    saveAll();
+    render();
+  }
+}
+
+// ========== 导出功能 ==========
+function buildTableData() {
+  // 返回 { headers, rows } — 扁平化表头
+  const headers = ['姓名'];
+  aspectLabels.forEach(label => {
+    LETTERS.forEach(l => headers.push(`${label}-${l}`));
+  });
+  // 可选：每人一个合计列
+  headers.push('合计');
+
+  const rows = candidates.map(c => {
+    const row = [c.name];
+    let total = 0;
+    c.aspects.forEach(asp => {
+      LETTERS.forEach(l => {
+        row.push(asp[l]);
+        total += asp[l];
+      });
+    });
+    row.push(total);
+    return row;
+  });
+
+  return { headers, rows };
+}
+
+function toCSV(headers, rows) {
+  // BOM for Excel UTF-8 识别
+  const BOM = '﻿';
+  const escape = v => {
+    const s = String(v);
+    // 含逗号、换行、引号时需包裹
+    if (s.includes(',') || s.includes('\n') || s.includes('"')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+  const lines = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))];
+  return BOM + lines.join('\n');
+}
+
+function exportCSV() {
+  const { headers, rows } = buildTableData();
+  const csv = toCSV(headers, rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  // 生成文件名带日期
+  const now = new Date();
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const filename = `票数统计_${ts}.csv`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function copyTable() {
+  const { headers, rows } = buildTableData();
+  // TSV 格式，粘贴到 Excel/WPS 时自动分列
+  const tsv = [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
+
+  navigator.clipboard.writeText(tsv).then(() => {
+    // 短暂提示
+    showToast('✅ 已复制！可直接粘贴到 Excel / WPS');
+  }).catch(() => {
+    // 降级：用 textarea 复制
+    const ta = document.createElement('textarea');
+    ta.value = tsv;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ 已复制！可直接粘贴到 Excel / WPS');
+  });
+}
+
+function showToast(msg) {
+  // 移除已有 toast
+  const old = document.querySelector('.toast');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  el.style.cssText = `
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:rgba(30,27,58,0.95); color:#5ce0a8;
+    border:1px solid rgba(100,220,180,0.3);
+    padding:10px 24px; border-radius:10px; font-size:14px; font-weight:600;
+    z-index:200; pointer-events:none;
+    animation: toastIn 0.3s ease-out, toastOut 0.3s 1.5s ease-in forwards;
+  `;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ========== 粘贴名单 ==========
+function openPasteModal() {
+  document.getElementById('pasteOverlay').classList.add('show');
+  document.getElementById('pasteInput').value = '';
+  document.getElementById('namePreview').textContent = '';
+  setTimeout(() => document.getElementById('pasteInput').focus(), 100);
+}
+
+function closePasteModal() {
+  document.getElementById('pasteOverlay').classList.remove('show');
+}
+
+function parseNames(text) {
+  return text.split(/[\n\r,，、;；\t]+/).map(s => s.trim()).filter(s => s.length > 0);
+}
+
+function previewNames() {
+  const names = parseNames(document.getElementById('pasteInput').value);
+  const el = document.getElementById('namePreview');
+  if (names.length === 0) {
+    el.textContent = '';
+  } else {
+    el.textContent = `识别到 ${names.length} 个名字：${names.slice(0, 8).join('、')}${names.length > 8 ? '…' : ''}`;
+  }
+}
+
+function confirmPaste() {
+  const names = parseNames(document.getElementById('pasteInput').value);
+  if (names.length === 0) { alert('请先粘贴名单内容'); return; }
+
+  const mode = document.querySelector('input[name="pasteMode"]:checked').value;
+
+  if (mode === 'replace') {
+    candidates = names.map(name => ({
+      id: Date.now() + Math.random() * 10000,
+      name,
+      aspects: defaultAspects()
+    }));
+  } else {
+    const existingNames = new Set(candidates.map(c => c.name));
+    names.filter(n => !existingNames.has(n)).forEach(name => {
+      candidates.push({
+        id: Date.now() + Math.random() * 10000,
+        name,
+        aspects: defaultAspects()
+      });
+    });
+  }
+
+  saveAll();
+  closePasteModal();
+  render();
+}
+
+// ========== 键盘快捷键 ==========
+// 点击卡片中的 input 不会触发快捷键
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // 预留快捷键空间，暂不绑定（ABCD 已足够便捷）
+});
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ========== 首次渲染 ==========
+render();
+</script>
+</body>
+</html>
